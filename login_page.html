@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login Page</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f4f4f4;
+      font-family: Arial, sans-serif;
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 400px;
+      margin: 100px auto;
+      padding: 30px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    .login-container h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #2980b9;
+    }
+
+    .message {
+      text-align: center;
+      margin-top: 15px;
+      color: green;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h2>Login</h2>
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" required />
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" required />
+      </div>
+      <button type="submit">Login</button>
+    </form>
+    <div class="message" id="message">Login successful</div>
+  </div>
+
+  <script>
+    function getCookies() {
+      return document.cookie.split('; ').reduce((acc, cookieStr) => {
+        const [key, value] = cookieStr.split('=');
+        acc[key] = decodeURIComponent(value);
+        return acc;
+      }, {});
+    }
+
+    // Set a single cookie
+    function setCookie(name, value, days = 365) {
+      const expires = new Date(Date.now() + days * 864e5).toUTCString();
+      document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/`;
+    }
+
+    let passedLogin = false
+    function connect() {
+      socket = new WebSocket('ws://' + location.host + '/login' + '/ws');
+
+      socket.onopen = () => {
+        console.log('Connected to server');
+      };
+
+      socket.onmessage = (event) => {
+        console.log(event.data);
+        if (passedLogin) {
+          let login_parse = JSON.parse(event.data)
+          if (login_parse.success == true) {
+            setCookie("account_id", login_parse.account_id , 1);
+            setCookie("username"  , login_parse.username   , 1);
+            setCookie("authToken" , login_parse.authToken  , 1);
+            window.location.href = "/game"
+          }
+        }
+      };
+
+      socket.onclose = () => {
+        console.log('Disconnected from server');
+        location.reload();
+      };
+
+      socket.onerror = (error) => {
+        appendMessage('WebSocket error');
+        console.error(error);
+      };
+    }
+  
+    document.getElementById("loginForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+
+      const Lusername = document.getElementById("username").value;
+      const Lpassword = document.getElementById("password").value;
+
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          type : "login",
+          password : Lpassword,
+          username : Lusername
+        }));
+      } else {
+        appendMessage('WebSocket not connected');
+      }
+      passedLogin = true
+    });
+    window.onload = connect;
+  </script>
+</body>
+</html>

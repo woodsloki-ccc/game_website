@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>game</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      overflow: hidden; /* Optional: prevents scrollbars */
+      height: 100%;
+      width: 100%;
+    }
+
+    canvas {
+      display: block; /* Removes extra space below canvas */
+    }
+  </style>
+</head>
+<body>
+  <canvas id="screen canvas"></canvas>
+
+  <script>
+    let socket;
+    let screen_canvas = document.getElementById("screen canvas");
+    const ctx = screen_canvas.getContext('2d');
+
+    const time_between_update_packets = 1000;
+    let last_packet_request = Date.now();
+
+    function resizeCanvas() {
+      screen_canvas.width = window.innerWidth;
+      screen_canvas.height = window.innerHeight;
+      draw(); 
+    }
+
+    function draw() {
+      ctx.fillStyle = "rgb(70, 70, 150)";
+      ctx.fillRect(0, 0, screen_canvas.width, screen_canvas.height);
+    }
+
+    function requestUpdatePacket() {
+      let cookies = getCookies()
+      socket.send(JSON.stringify({
+        type       : "game",
+        subtype    : "update",
+        username   : cookies.username,
+        account_id : cookies.account_id,
+        authToken  : cookies.authToken
+      }));
+    }
+
+    function getCookies() {
+      return document.cookie.split('; ').reduce((acc, cookieStr) => {
+        const [key, value] = cookieStr.split('=');
+        acc[key] = decodeURIComponent(value);
+        return acc;
+      }, {});
+    }
+
+    function setCookie(name, value, days = 365) {
+      const expires = new Date(Date.now() + days * 864e5).toUTCString();
+      document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/`;
+    }
+
+    function connect() {
+      socket = new WebSocket('ws://' + location.host + '/game' + '/ws');
+
+      socket.onopen = () => {
+        console.log('Connected to server');
+      };
+
+      socket.onmessage = (event) => {
+        console.log(event.data);
+        data = JSON.parse(event.data)
+        if (data.type == "game") {
+          console.log(data);
+          if (data.subtype == "update"){
+            updatePacketHandler();
+          } else if (data.subtype == "change site") {
+            window.location.href = data.site;
+          }
+        }
+      };
+
+      socket.onclose = () => {
+        console.log('Disconnected from server');
+        location.reload();
+      };
+
+      socket.onerror = (error) => {
+        console.log('WebSocket error');
+        console.error(error);
+      };
+    }
+
+    function updatePacketHandler() {
+
+    }
+
+    function animate() {
+      if (Date.now() - last_packet_request > time_between_update_packets) {
+        last_packet_request = Date.now();
+        requestUpdatePacket();
+      }
+      draw();
+      requestAnimationFrame(animate);
+    }
+
+    window.onload = connect;
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas(); // Initial setup
+    animate()
+  </script>
+</body>
+</html>
